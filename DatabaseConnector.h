@@ -22,12 +22,12 @@
 @property(nonatomic , retain) NSString * databasePath;
 @property BOOL isDatabaseOpen;
 
--(id)initWithDatabase:(NSString *)name;
++(DatabaseConnector *)initializeDatabaseWithName:(NSString *)name andExtension:(NSString *)extension;
+-(id)initWithName:(NSString *)name andExtension:(NSString *)extension;
 -(NSMutableArray *) selectWithQuery:(NSString *)query;
 -(BOOL)insertToTable:(NSString *)tableName elements:(NSDictionary *)elements;
 -(BOOL)updateTable:(NSString *)tableName withControlKey:(NSDictionary *)controlKey andElements:(NSDictionary *)elements;
--(BOOL)deleteFromTable:(NSString *)table withControlKey:(NSString *)key andValue:(NSString *)value;
--(void)clearDatabase;
-
+-(BOOL)deleteFromTable:(NSString *)table withControlDict:(NSDictionary *)controlDict;
+-(void)clearTables:(NSArray *)tables;
 
 @end

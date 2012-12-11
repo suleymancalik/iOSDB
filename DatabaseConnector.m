@@ -14,23 +14,46 @@
 @synthesize databasePath;
 @synthesize isDatabaseOpen;
 
--(id)initWithDatabase:(NSString *)name;
+
+
++(DatabaseConnector *)initializeDatabaseWithName:(NSString *)name andExtension:(NSString *)extension
+{
+    return [[DatabaseConnector alloc] initWithName:name andExtension:extension];
+}
+
+
+
+-(id)initWithName:(NSString *)name andExtension:(NSString *)extension
 {
     self = [super init];
 	if (self)
 	{
-		
+        NSString * dbName;
+        if (extension.length > 0)
+        {
+            dbName = [NSString stringWithFormat:@"%@.%@" , name , extension];
+        }
+        else
+        {
+            dbName = [NSString stringWithString:name];
+        }
+
 		NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
 		NSString *documentsDirectory = [paths objectAtIndex:0];	
-		NSString * localDatabase = [documentsDirectory stringByAppendingPathComponent:name];
+		NSString * localDatabase = [documentsDirectory stringByAppendingPathComponent:dbName];
         
         
         NSString *appDir = [[NSBundle mainBundle] resourcePath];			
-        NSString *projectDatabase = [appDir stringByAppendingPathComponent:name];
+        NSString *projectDatabase = [appDir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@",dbName]];
+        // TripinIPad/Resources/databases/
         
 		
+        NSLog(@"DB FOUND: %d" , [[NSFileManager defaultManager] fileExistsAtPath:projectDatabase]);
 		if (![[NSFileManager defaultManager] fileExistsAtPath:localDatabase])
-			[[NSFileManager defaultManager] copyItemAtPath: projectDatabase toPath: localDatabase error: NULL];
+        {
+			BOOL copySuccess = [[NSFileManager defaultManager] copyItemAtPath:projectDatabase toPath:localDatabase error:NULL];
+            NSLog(@"DB COPY SUCCESS: %d" , copySuccess);
+        }
         /*
         else
         {
@@ -70,9 +93,8 @@
 	sqlite3_stmt * statement;
 
 	sqlite3_prepare_v2(database, [query UTF8String],-1, &statement, nil);
-    
     int columnCount = sqlite3_column_count(statement);
-    
+        
     NSMutableArray * result = [[NSMutableArray alloc] init];
     
     
@@ -161,8 +183,20 @@
         
 		if(keyCount != 0)
 			[query appendString:@" , "];
+        
+        NSString * valueString;
+        NSObject * keyValue = [elements objectForKey:keyString];
+        if ([keyValue isKindOfClass:[NSNumber class]])
+        {
+            valueString = [NSString stringWithFormat:@"%@" , keyValue];
+        }
+        else
+        {
+            valueString = [NSString stringWithFormat:@"'%@'" , keyValue];
+        }
+        
 		
-		[query appendString:[NSString stringWithFormat:@"%@ = '%@'" , keyString , [elements objectForKey:keyString]]];
+		[query appendString:[NSString stringWithFormat:@"%@ = %@" , keyString , valueString]];
 		
 		keyCount++;
 	}
@@ -172,15 +206,26 @@
     {
         [query appendString:@" WHERE "];
         
-        for (NSObject * keyObject in controlKey.allKeys)
+        for (NSObject * key in controlKey.allKeys)
         {
             if(keyCount != 0)
                 [query appendString:@" AND "];
 
+            NSString * valueString;
+            NSObject * keyValue = [controlKey objectForKey:key];
+            if ([keyValue isKindOfClass:[NSNumber class]])
+            {
+                valueString = [NSString stringWithFormat:@"%@" , keyValue];
+            }
+            else
+            {
+                valueString = [NSString stringWithFormat:@"'%@'" , keyValue];
+            }
+
             
-            NSString * key = [NSString stringWithFormat:@"%@" ,keyObject];
+            NSString * keyString = [NSString stringWithFormat:@"%@" ,key];
             
-            [query appendFormat:@"%@ = %@" , key , [controlKey objectForKey:key]];
+            [query appendFormat:@"%@ = %@" , keyString , valueString];
 
         }
     }
@@ -196,9 +241,16 @@
 }
 
 
--(BOOL)deleteFromTable:(NSString *)table withControlKey:(NSString *)key andValue:(NSString *)value
+-(BOOL)deleteFromTable:(NSString *)table withControlDict:(NSDictionary *)controlDict
 {
-    NSMutableString * query = [[NSMutableString alloc] initWithFormat:@"DELETE FROM %@ WHERE %@ = %@ " , table , key ,value];
+    NSMutableString * query = [[NSMutableString alloc] initWithFormat:@"DELETE FROM %@ WHERE" , table];
+    
+    int keyCount = 0;
+    for (NSString * key in controlDict.allKeys)
+    {
+        [query appendFormat:@"%@%@ = %@ " , keyCount ? @" AND " : @" " , key , [controlDict valueForKey:key]];
+        ++keyCount;
+    }
 
     char *err;
 	int sonuc = sqlite3_exec(database, [query UTF8String],NULL, NULL, &err);
@@ -210,19 +262,16 @@
 
 }
 
--(void)clearDatabase
+-(void)clearTables:(NSArray *)tables
 {
-    NSArray * tables = [[NSArray alloc] initWithObjects:
-                        @"Favorites", 
-                        nil];
-    
     for (NSString * table in tables)
     {
         NSString * query = [NSString stringWithFormat:@"DELETE FROM %@" , table];
         char *err;
-        int result = sqlite3_exec(database, [query UTF8String],NULL, NULL, &err);
-        NSLog(@"%@ %d" , table , result);
+        sqlite3_exec(database, [query UTF8String],NULL, NULL, &err);
     }
 }
+
+
 
 @end
