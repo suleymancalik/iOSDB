@@ -15,19 +15,25 @@
 @interface DatabaseConnector : NSObject 
 {
 	sqlite3 * database;
-	
-	NSString * databasePath;
 	BOOL isDatabaseOpen;
 }
-@property(nonatomic , retain) NSString * databasePath;
 @property BOOL isDatabaseOpen;
 
-+(DatabaseConnector *)initializeDatabaseWithName:(NSString *)name andExtension:(NSString *)extension;
--(id)initWithName:(NSString *)name andExtension:(NSString *)extension;
++(DatabaseConnector *)initDatabaseNamed:(NSString *)name
+                                version:(NSString *)version
+                              extension:(NSString *)extension;
+
+-(id)initWithName:(NSString *)name
+           versio:(NSString *)version
+     andExtension:(NSString *)extension;
+
 -(NSMutableArray *) selectWithQuery:(NSString *)query;
 -(BOOL)insertToTable:(NSString *)tableName elements:(NSDictionary *)elements;
 -(BOOL)updateTable:(NSString *)tableName withControlKey:(NSDictionary *)controlKey andElements:(NSDictionary *)elements;
--(BOOL)deleteFromTable:(NSString *)table withControlDict:(NSDictionary *)controlDict;
+-(BOOL)deleteFromTable:(NSString *)table withControlKey:(NSString *)key andValue:(NSString *)value;
+
+-(void)clearTable:(NSString *)table;
 -(void)clearTables:(NSArray *)tables;
+-(void)clearAllTables;
 
 @end

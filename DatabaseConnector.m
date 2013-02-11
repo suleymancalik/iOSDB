@@ -11,19 +11,34 @@
 
 @implementation DatabaseConnector
 
-@synthesize databasePath;
 @synthesize isDatabaseOpen;
 
 
+/*
+static DatabaseConnector * _sharedHelper = nil;
 
-+(DatabaseConnector *)initializeDatabaseWithName:(NSString *)name andExtension:(NSString *)extension
++ (DatabaseConnector *)sharedHelper
 {
-    return [[DatabaseConnector alloc] initWithName:name andExtension:extension];
+    if(_sharedHelper == nil)
+    {
+        _sharedHelper = [[DatabaseConnector alloc] init];
+    }
+    return _sharedHelper;
+}
+*/
+
++(DatabaseConnector *)initDatabaseNamed:(NSString *)name
+                                version:(NSString *)version
+                              extension:(NSString *)extension
+{
+    return [[DatabaseConnector alloc] initWithName:name versio:version andExtension:extension];
 }
 
 
 
--(id)initWithName:(NSString *)name andExtension:(NSString *)extension
+-(id)initWithName:(NSString *)name
+           versio:(NSString *)version
+     andExtension:(NSString *)extension
 {
     self = [super init];
 	if (self)
@@ -32,6 +47,7 @@
         if (extension.length > 0)
         {
             dbName = [NSString stringWithFormat:@"%@.%@" , name , extension];
+//            dbName = [NSString stringWithFormat:@"%@" , name];
         }
         else
         {
@@ -39,53 +55,168 @@
         }
 
 		NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
-		NSString *documentsDirectory = [paths objectAtIndex:0];	
-		NSString * localDatabase = [documentsDirectory stringByAppendingPathComponent:dbName];
-        
-        
-        NSString *appDir = [[NSBundle mainBundle] resourcePath];			
+		NSString *documentsDirectory = paths[0];	
+		NSString * localDatabasePath = [documentsDirectory stringByAppendingPathComponent:dbName];
+
+
+        NSString *appDir = [[NSBundle mainBundle] resourcePath];
         NSString *projectDatabase = [appDir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@",dbName]];
-        // TripinIPad/Resources/databases/
         
-		
-        NSLog(@"DB FOUND: %d" , [[NSFileManager defaultManager] fileExistsAtPath:projectDatabase]);
-		if (![[NSFileManager defaultManager] fileExistsAtPath:localDatabase])
+		BOOL willOpenDatabase = YES;
+        
+		if (![[NSFileManager defaultManager] fileExistsAtPath:localDatabasePath])
         {
-			BOOL copySuccess = [[NSFileManager defaultManager] copyItemAtPath:projectDatabase toPath:localDatabase error:NULL];
-            NSLog(@"DB COPY SUCCESS: %d" , copySuccess);
+            NSError * err = nil;
+			BOOL copySuccess = [[NSFileManager defaultManager] copyItemAtPath:projectDatabase toPath:localDatabasePath error:&err];
+            if(copySuccess)
+            {
+                [self saveVersion:version ofDatabase:name];
+            }
+            else
+            {
+                NSLog(@"NEW DB NOT COPIED!!!  %@", err);
+            }
         }
-        /*
         else
         {
-            NSDictionary * localDict = [[NSFileManager defaultManager] attributesOfItemAtPath:localDatabase error:NULL];
-            NSDictionary * projectDict = [[NSFileManager defaultManager] attributesOfItemAtPath:projectDatabase error:NULL];
-            if(localDict != nil && projectDict != nil)
+            NSString * existingVersion = [self savedVersionOfDatabase:name];
+            if(!existingVersion || (![existingVersion isEqualToString:version]))
             {
-                if([localDict fileSize] != [projectDict fileSize])
+                if(!existingVersion)
+                    existingVersion = @"";
+                
+                
+                if(extension.length > 0)
+                    dbName = [dbName stringByReplacingOccurrencesOfString:[NSString stringWithFormat:@".%@" , extension] withString:[NSString stringWithFormat:@"_%@.%@" ,existingVersion , extension]];
+                
+                NSString * oldDBPath = [documentsDirectory stringByAppendingPathComponent:dbName];
+                
+                NSError * err = nil;
+                if ([[NSFileManager defaultManager] fileExistsAtPath:oldDBPath])
                 {
-                    [[NSFileManager defaultManager] removeItemAtPath:localDatabase error:NULL];
-                    [[NSFileManager defaultManager] copyItemAtPath: projectDatabase toPath: localDatabase error: NULL];
+                    BOOL removed = [[NSFileManager defaultManager] removeItemAtPath:oldDBPath error:&err];
+                    if(!removed)
+                    {
+                        NSLog(@"OLD DB NOT REMOVED!!! %@", err);
+                        err = nil;
+                    }
+                }
+                BOOL moved = [[NSFileManager defaultManager] moveItemAtPath:localDatabasePath toPath:oldDBPath error:&err];
+                if(!moved)
+                {
+                    NSLog(@"OLD DB NOT MOVED!!! %@", err);
+                    err = nil;
+                }
+
+                BOOL copySuccess = [[NSFileManager defaultManager] copyItemAtPath:projectDatabase toPath:localDatabasePath error:&err];
+                if(copySuccess)
+                {
+                    [self copyDataFromDB:oldDBPath toDB:localDatabasePath];
+                    [self saveVersion:version ofDatabase:name];
+                    willOpenDatabase = NO;
+                }
+                else
+                {
+                    NSLog(@"NEW DB NOT COPIED!!!  %@", err);
                 }
             }
         }
-		*/
-		databasePath = localDatabase;
-		
-		int result = sqlite3_open([databasePath UTF8String], &database);
-		
-		if (result != SQLITE_OK) 
-		{
-			sqlite3_close(database);
-		}
-		else
-		{
-			isDatabaseOpen = YES;
-		}
+
+        [self openDatabaseAtPath:localDatabasePath];
 
 	}
 	
 	return self;
 }
+
+
+-(void)openDatabaseAtPath:(NSString *)dbPath
+{
+    int result = sqlite3_open([dbPath UTF8String], &database);
+    
+    if (result != SQLITE_OK)
+    {
+        sqlite3_close(database);
+    }
+    else
+    {
+        isDatabaseOpen = YES;
+    }
+}
+
+
+-(void)closeCurrentDatabase
+{
+    sqlite3_close(database);
+}
+
+-(NSString *)savedVersionOfDatabase:(NSString *)databaseName
+{
+    return [[NSUserDefaults standardUserDefaults] objectForKey:databaseName];
+}
+
+-(void)saveVersion:(NSString *)version ofDatabase:(NSString *)databaseName
+{
+    [[NSUserDefaults standardUserDefaults] setObject:version forKey:databaseName];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+}
+
+
+-(void)copyDataFromDB:(NSString *)oldDBPath toDB:(NSString *)newDBPath
+{
+    [self openDatabaseAtPath:oldDBPath];
+    
+    NSMutableDictionary * allOldDict = [NSMutableDictionary dictionary];
+    
+    NSArray * allTables = [self selectWithQuery:@"SELECT name FROM sqlite_master WHERE type = 'table'"];
+    for (NSDictionary * tableDict in allTables)
+    {
+        NSString * table = tableDict[@"name"];
+        if(![table isEqualToString:@"sqlite_sequence"])
+        {
+            NSArray * tableData = [self selectWithQuery:[NSString stringWithFormat:@"SELECT * FROM %@" , table]];
+            [allOldDict setObject:tableData forKey:table];
+        }
+    }
+    
+    [self closeCurrentDatabase];
+    [self openDatabaseAtPath:newDBPath];
+    
+    for (NSDictionary * tableDict in allTables)
+    {
+        NSString * table = tableDict[@"name"];
+
+        NSArray * oldDataArr = [allOldDict objectForKey:table];
+        for (NSDictionary * oldData in oldDataArr)
+        {
+            [self insertToTable:table elements:oldData];
+        }
+    }
+}
+
+
+- (BOOL)checkForColumn:(NSString *)desiredColumn inTable:(NSString *)tableName
+{
+    const char *sql = [[NSString stringWithFormat:@"PRAGMA table_info(%@)", tableName] cStringUsingEncoding:NSUTF8StringEncoding];
+    sqlite3_stmt *stmt;
+    
+    if (sqlite3_prepare_v2(database, sql, -1, &stmt, NULL) != SQLITE_OK)
+    {
+        return NO;
+    }
+    
+    while(sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        
+        NSString *fieldName = @((char *)sqlite3_column_text(stmt, 1));
+        if([desiredColumn isEqualToString:fieldName])
+            return YES;
+    }
+    
+    return NO;
+}
+
+#pragma mark - Query Methods
 
 
 -(NSMutableArray *) selectWithQuery:(NSString *)query
@@ -94,7 +225,7 @@
 
 	sqlite3_prepare_v2(database, [query UTF8String],-1, &statement, nil);
     int columnCount = sqlite3_column_count(statement);
-        
+    
     NSMutableArray * result = [[NSMutableArray alloc] init];
     
     
@@ -113,11 +244,11 @@
                 {
                     NSString * contentString = [[NSString alloc] initWithUTF8String:contentData];
                     
-                    [dict setObject:contentString forKey:nameString];
+                    dict[nameString] = contentString;
                 }
                 else
                 {
-                    [dict setObject:@"" forKey:nameString];
+                    dict[nameString] = @"";
                 }
             }
             
@@ -185,7 +316,7 @@
 			[query appendString:@" , "];
         
         NSString * valueString;
-        NSObject * keyValue = [elements objectForKey:keyString];
+        NSObject * keyValue = elements[keyString];
         if ([keyValue isKindOfClass:[NSNumber class]])
         {
             valueString = [NSString stringWithFormat:@"%@" , keyValue];
@@ -212,7 +343,7 @@
                 [query appendString:@" AND "];
 
             NSString * valueString;
-            NSObject * keyValue = [controlKey objectForKey:key];
+            NSObject * keyValue = controlKey[key];
             if ([keyValue isKindOfClass:[NSNumber class]])
             {
                 valueString = [NSString stringWithFormat:@"%@" , keyValue];
@@ -241,16 +372,9 @@
 }
 
 
--(BOOL)deleteFromTable:(NSString *)table withControlDict:(NSDictionary *)controlDict
+-(BOOL)deleteFromTable:(NSString *)table withControlKey:(NSString *)key andValue:(NSString *)value
 {
-    NSMutableString * query = [[NSMutableString alloc] initWithFormat:@"DELETE FROM %@ WHERE" , table];
-    
-    int keyCount = 0;
-    for (NSString * key in controlDict.allKeys)
-    {
-        [query appendFormat:@"%@%@ = %@ " , keyCount ? @" AND " : @" " , key , [controlDict valueForKey:key]];
-        ++keyCount;
-    }
+    NSMutableString * query = [[NSMutableString alloc] initWithFormat:@"DELETE FROM %@ WHERE %@ = %@ " , table , key ,value];
 
     char *err;
 	int sonuc = sqlite3_exec(database, [query UTF8String],NULL, NULL, &err);
@@ -258,8 +382,15 @@
 	if (sonuc == SQLITE_OK)
 		return YES;
 	else 
-		return NO;	
+		return NO;
+}
 
+
+-(void)clearTable:(NSString *)table
+{
+    NSString * query = [NSString stringWithFormat:@"DELETE FROM %@" , table];
+    char *err;
+    sqlite3_exec(database, [query UTF8String],NULL, NULL, &err);
 }
 
 -(void)clearTables:(NSArray *)tables
@@ -272,6 +403,11 @@
     }
 }
 
+-(void)clearAllTables
+{
+    NSArray * tables = [self selectWithQuery:@"SELECT name FROM sqlite_master WHERE type = 'table'"];
+    [self clearTables:tables];
+}
 
 
 @end
