@@ -1,4 +1,4 @@
-iOS-Database-Connector
+iOSDB
 ======================
 
 Helper class for connecting and quering sqlite files
