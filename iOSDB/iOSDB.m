@@ -1,44 +1,39 @@
 //
-//  DatabaseConnector.m
-//  Database
+//  iOSDB.m
+//  iOSDB
 //
 //  Created by Süleyman Çalık on 12/29/10.
-//  Copyright 2010 www.suleymancalik.com All rights reserved.
+//  Copyright 2010 Süleyman Çalık All rights reserved.
 //
 
-#import "DatabaseConnector.h"
+#import "iOSDB.h"
 
 
-@implementation DatabaseConnector
+@implementation iOSDB
 
 @synthesize isDatabaseOpen;
 
 
-/*
-static DatabaseConnector * _sharedHelper = nil;
 
-+ (DatabaseConnector *)sharedHelper
-{
-    if(_sharedHelper == nil)
-    {
-        _sharedHelper = [[DatabaseConnector alloc] init];
-    }
-    return _sharedHelper;
-}
-*/
+static iOSDB * _sharedDB = nil;
 
-+(DatabaseConnector *)initDatabaseNamed:(NSString *)name
-                                version:(NSString *)version
-                              extension:(NSString *)extension
+
++(iOSDB *)sharedDB
 {
-    return [[DatabaseConnector alloc] initWithName:name versio:version andExtension:extension];
+    return _sharedDB;
 }
 
++(void)setupWithFileName:(NSString *)name
+               extension:(NSString *)extension
+                 version:(NSString *)version
+{
+    _sharedDB = [[iOSDB alloc] initWithName:name extension:extension version:version];
+}
 
 
 -(id)initWithName:(NSString *)name
-           versio:(NSString *)version
-     andExtension:(NSString *)extension
+        extension:(NSString *)extension
+          version:(NSString *)version
 {
     self = [super init];
 	if (self)
@@ -47,7 +42,6 @@ static DatabaseConnector * _sharedHelper = nil;
         if (extension.length > 0)
         {
             dbName = [NSString stringWithFormat:@"%@.%@" , name , extension];
-//            dbName = [NSString stringWithFormat:@"%@" , name];
         }
         else
         {
@@ -218,6 +212,71 @@ static DatabaseConnector * _sharedHelper = nil;
 
 #pragma mark - Query Methods
 
+#pragma mark Select
+
++(NSArray *)selectFromTable:(NSString *)table
+                   elements:(NSArray *)elements
+                       keys:(NSDictionary *)keys
+{
+
+    if(![self sharedDB])
+    {
+        NSLog(@"SETUP METHOD MUST BE CALLED FIRST");
+        return nil;
+    }
+
+    NSMutableString * query = [[NSMutableString alloc] initWithFormat:@"SELECT "];
+    
+    if(elements.count > 0)
+    {
+        int elementCount = 0;
+        for (NSString * element in elements)
+        {
+            if(![element isKindOfClass:[NSString class]])
+            {
+                NSLog(@"ELEMENTS MUST BE STRING !!!");
+                return nil;
+            }
+            
+            if(elementCount == 0)
+                [query appendFormat:@"%@ ",element];
+            else
+                [query appendFormat:@", %@ ",element];
+            ++elementCount;
+        }
+    }
+    else
+    {
+        [query appendString:@"* "];
+    }
+    
+    [query appendFormat:@"FROM %@ ",table];
+    
+    
+    if (keys.count > 0)
+    {
+        int keyCount = 0;
+        for (NSString * key in keys.allKeys)
+        {
+            NSString * value = keys[key];
+            if(![key isKindOfClass:[NSString class]] ||
+               ![value isKindOfClass:[NSString class]])
+            {
+                NSLog(@"KEYS AND VALUES MUST BE STRING !!!");
+                return nil;
+            }
+
+            if(keyCount == 0)
+                [query appendFormat:@"WHERE %@ = %@ ",key,value];
+            else
+                [query appendFormat:@"AND %@ = %@ ",key,value];
+            ++keyCount;
+        }
+    }
+    
+    NSLog(@"%@" , query);
+    return [[self sharedDB] selectWithQuery:query];
+}
 
 -(NSMutableArray *) selectWithQuery:(NSString *)query
 {
@@ -259,6 +318,16 @@ static DatabaseConnector * _sharedHelper = nil;
     }
     
 	return result;
+}
+
+
+#pragma mark Insert
+
++(BOOL)insertToTable:(NSString *)tableName elements:(NSDictionary *)elements
+{
+    if(![self sharedDB])
+        NSLog(@"SETUP METHOD MUST BE CALLED FIRST");
+    return [[self sharedDB] insertToTable:tableName elements:elements];
 }
 
 -(BOOL)insertToTable:(NSString *)tableName elements:(NSDictionary *)elements
@@ -303,7 +372,22 @@ static DatabaseConnector * _sharedHelper = nil;
 		return NO;	
 }
 
--(BOOL)updateTable:(NSString *)tableName withControlKey:(NSDictionary *)controlKey andElements:(NSDictionary *)elements
+#pragma mark Update
+
++(BOOL)updateTable:(NSString *)tableName
+    withControlKey:(NSDictionary *)controlKey
+       andElements:(NSDictionary *)elements
+{
+    if(![self sharedDB])
+        NSLog(@"SETUP METHOD MUST BE CALLED FIRST");
+    return [[self sharedDB] updateTable:tableName
+                         withControlKey:controlKey
+                            andElements:elements];
+}
+
+-(BOOL)updateTable:(NSString *)tableName
+    withControlKey:(NSDictionary *)controlKey
+       andElements:(NSDictionary *)elements
 {
     NSMutableString * query = [[NSMutableString alloc] initWithFormat:@"UPDATE %@ SET " , tableName];
 
@@ -372,7 +456,22 @@ static DatabaseConnector * _sharedHelper = nil;
 }
 
 
--(BOOL)deleteFromTable:(NSString *)table withControlKey:(NSString *)key andValue:(NSString *)value
+#pragma mark Delete
+
++(BOOL)deleteFromTable:(NSString *)table
+        withControlKey:(NSString *)key
+              andValue:(NSString *)value
+{
+    if(![self sharedDB])
+        NSLog(@"SETUP METHOD MUST BE CALLED FIRST");
+    return [[self sharedDB] deleteFromTable:table
+                             withControlKey:key
+                                   andValue:value];
+}
+
+-(BOOL)deleteFromTable:(NSString *)table
+        withControlKey:(NSString *)key
+              andValue:(NSString *)value
 {
     NSMutableString * query = [[NSMutableString alloc] initWithFormat:@"DELETE FROM %@ WHERE %@ = %@ " , table , key ,value];
 
@@ -386,11 +485,27 @@ static DatabaseConnector * _sharedHelper = nil;
 }
 
 
+#pragma mark - Clear
+
++(void)clearTable:(NSString *)table
+{
+    if(![self sharedDB])
+        NSLog(@"SETUP METHOD MUST BE CALLED FIRST");
+    [[self sharedDB] clearTable:table];
+}
+
 -(void)clearTable:(NSString *)table
 {
     NSString * query = [NSString stringWithFormat:@"DELETE FROM %@" , table];
     char *err;
     sqlite3_exec(database, [query UTF8String],NULL, NULL, &err);
+}
+
++(void)clearTables:(NSArray *)tables
+{
+    if(![self sharedDB])
+        NSLog(@"SETUP METHOD MUST BE CALLED FIRST");
+    [[self sharedDB] clearTables:tables];
 }
 
 -(void)clearTables:(NSArray *)tables
@@ -401,6 +516,13 @@ static DatabaseConnector * _sharedHelper = nil;
         char *err;
         sqlite3_exec(database, [query UTF8String],NULL, NULL, &err);
     }
+}
+
++(void)clearAllTables
+{
+    if(![self sharedDB])
+        NSLog(@"SETUP METHOD MUST BE CALLED FIRST");
+    [[self sharedDB] clearAllTables];
 }
 
 -(void)clearAllTables
