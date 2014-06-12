@@ -12,6 +12,7 @@
 		C59CD485194A4A9B008D5B71 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = C59CD483194A4A9B008D5B71 /* Main.storyboard */; };
 		C59CD487194A4A9B008D5B71 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C59CD486194A4A9B008D5B71 /* Images.xcassets */; };
 		C59CD493194A4A9B008D5B71 /* iOSDBTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C59CD492194A4A9B008D5B71 /* iOSDBTests.swift */; };
+		C59CD49F194A5236008D5B71 /* iOSDB.swift in Sources */ = {isa = PBXBuildFile; fileRef = C59CD49E194A5236008D5B71 /* iOSDB.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -34,6 +35,7 @@
 		C59CD48C194A4A9B008D5B71 /* iOSDBTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iOSDBTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C59CD491194A4A9B008D5B71 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C59CD492194A4A9B008D5B71 /* iOSDBTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSDBTests.swift; sourceTree = "<group>"; };
+		C59CD49E194A5236008D5B71 /* iOSDB.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = iOSDB.swift; path = ../../iOSDB.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -77,6 +79,7 @@
 			children = (
 				C59CD47F194A4A9B008D5B71 /* AppDelegate.swift */,
 				C59CD481194A4A9B008D5B71 /* ViewController.swift */,
+				C59CD49E194A5236008D5B71 /* iOSDB.swift */,
 				C59CD483194A4A9B008D5B71 /* Main.storyboard */,
 				C59CD486194A4A9B008D5B71 /* Images.xcassets */,
 				C59CD47D194A4A9B008D5B71 /* Supporting Files */,
@@ -209,6 +212,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C59CD482194A4A9B008D5B71 /* ViewController.swift in Sources */,
+				C59CD49F194A5236008D5B71 /* iOSDB.swift in Sources */,
 				C59CD480194A4A9B008D5B71 /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -397,6 +401,7 @@
 				C59CD498194A4A9B008D5B71 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		C59CD499194A4A9B008D5B71 /* Build configuration list for PBXNativeTarget "iOSDBTests" */ = {
 			isa = XCConfigurationList;
@@ -405,6 +410,7 @@
 				C59CD49B194A4A9B008D5B71 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
