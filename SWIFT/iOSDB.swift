@@ -8,6 +8,37 @@
 
 import Foundation
 
+class iOSDB
+{
+    var dbPointer:COpaquePointer =  nil;
+    
+    func setup(fileName:String, version:String)
+        -> Bool
+    {
+    
+            return false
+    }
+    
+    @required init(fileName:String, version:String)
+    {
+        let documentsPath = documentsDirectory()
+        var cstr = fileName.bridgeToObjectiveC().UTF8String
+        sqlite3_open(cstr,&dbPointer)
+    }
+}
+
+func documentsDirectory()->String
+{
+    let filemanager = NSFileManager.defaultManager()
+    let documetsPath : AnyObject = NSSearchPathForDirectoriesInDomains(.DocumentDirectory,.UserDomainMask,true)[0]
+    return documetsPath.string
+}
+
+func resourcesDirectory()->String
+{
+    return NSBundle.mainBundle().resourcePath
+}
+
 
 
 
