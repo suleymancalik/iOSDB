@@ -11,8 +11,6 @@
 
 @implementation iOSDB
 
-@synthesize isDatabaseOpen;
-
 
 
 static iOSDB * _sharedDB = nil;
@@ -23,11 +21,17 @@ static iOSDB * _sharedDB = nil;
     return _sharedDB;
 }
 
-+(void)setupWithFileName:(NSString *)name
++(BOOL)setupWithFileName:(NSString *)name
                extension:(NSString *)extension
                  version:(NSString *)version
 {
     _sharedDB = [[iOSDB alloc] initWithName:name extension:extension version:version];
+    return [self isReady];
+}
+
++(BOOL)isReady
+{
+    return _sharedDB ? YES : NO;
 }
 
 
@@ -323,14 +327,14 @@ static iOSDB * _sharedDB = nil;
 
 #pragma mark Insert
 
-+(BOOL)insertToTable:(NSString *)tableName elements:(NSDictionary *)elements
++(NSInteger)insertToTable:(NSString *)tableName elements:(NSDictionary *)elements
 {
     if(![self sharedDB])
         NSLog(@"SETUP METHOD MUST BE CALLED FIRST");
     return [[self sharedDB] insertToTable:tableName elements:elements];
 }
 
--(BOOL)insertToTable:(NSString *)tableName elements:(NSDictionary *)elements
+-(NSInteger)insertToTable:(NSString *)tableName elements:(NSDictionary *)elements
 {
 	NSMutableString * query = [[NSMutableString alloc] initWithFormat:@"INSERT INTO %@ ( " , tableName];
 	
@@ -365,11 +369,11 @@ static iOSDB * _sharedDB = nil;
 	
 	char *err;
 	int sonuc = sqlite3_exec(database, [query UTF8String],NULL, NULL, &err);
-	
+    
 	if (sonuc == SQLITE_OK)
-		return YES;
-	else 
-		return NO;	
+		return sqlite3_last_insert_rowid(database);
+	else
+		return -1;
 }
 
 #pragma mark Update

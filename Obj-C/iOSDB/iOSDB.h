@@ -16,14 +16,16 @@
 	sqlite3 * database;
 	BOOL isDatabaseOpen;
 }
-@property BOOL isDatabaseOpen;
 
 /*
  
  */
-+(void)setupWithFileName:(NSString *)name
++(BOOL)setupWithFileName:(NSString *)name
                extension:(NSString *)extension
                  version:(NSString *)version;
+
+
++(BOOL)isReady;
 
 /**
  Supports simple select queries like:
@@ -37,8 +39,11 @@
                        keys:(NSDictionary *)keys;
 
 
-+(BOOL)insertToTable:(NSString *)tableName
-            elements:(NSDictionary *)elements;
+/// Inserts element to table
+//  elements must be key-value
+//  Returns: id of element if successful or -1 if unsuccessful
++(NSInteger)insertToTable:(NSString *)tableName
+                 elements:(NSDictionary *)elements;
 
 
 +(BOOL)updateTable:(NSString *)tableName
